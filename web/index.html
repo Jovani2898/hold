@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0c0b09">
+<title>Hold</title>
+<link rel="icon" href="favicon.svg">
+<style>
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/fraunces.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("fonts/fraunces-italic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Instrument Sans";
+  src: url("fonts/instrument.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  color-scheme: dark;
+  --bg: #0c0b09;
+  --ink: #f3eee6;
+  --copper: #e4c39a;
+  --paper: #f1eadf;
+  --ink-2: #1a1612;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Instrument Sans", "Avenir Next", sans-serif;
+  font-weight: 450;
+  font-size: 17px;
+  line-height: 1.45;
+}
+::selection { background: var(--copper); color: var(--ink-2); }
+button, a { font: inherit; }
+#progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  width: 100%;
+  height: 2px;
+  background: var(--copper);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+#bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 16px 4vw;
+  color: var(--ink);
+  background: rgba(243, 238, 230, 0.05);
+  border-bottom: 1px solid rgba(243, 238, 230, 0.08);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  transition: background-color 160ms linear, border-color 160ms linear;
+}
+#bar.dark {
+  background: rgba(12, 11, 9, 0.92);
+  border-bottom-color: rgba(12, 11, 9, 0.92);
+}
+.mark {
+  justify-self: start;
+  font-family: Fraunces, Georgia, serif;
+  font-style: italic;
+  font-weight: 520;
+  font-size: 1.65rem;
+  letter-spacing: -0.03em;
+  color: inherit;
+  text-decoration: none;
+}
+.meta {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+#restock { justify-self: end; }
+.hero {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 4vw;
+  align-items: end;
+  min-height: 100vh;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 18vh 4vw 8vh;
+}
+.kicker {
+  margin: 0 0 1.2rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+h1 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 460;
+  font-size: clamp(4.4rem, 8.4vw, 8.2rem);
+  line-height: 0.86;
+  letter-spacing: -0.04em;
+}
+h1 em {
+  font-style: italic;
+  font-weight: 450;
+  color: var(--copper);
+}
+.lede {
+  max-width: 34rem;
+  margin: 1.6rem 0 0;
+  color: rgba(243, 238, 230, 0.76);
+  font-size: 1.08rem;
+  line-height: 1.5;
+}
+.hero-frame {
+  position: relative;
+  margin: 0;
+  height: min(76vh, 780px);
+  overflow: hidden;
+}
+.hero-frame img {
+  display: block;
+  width: 100%;
+  height: 120%;
+  object-fit: cover;
+  object-position: 70% 45%;
+}
+.hero-frame figcaption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 36px 14px 12px;
+  background: linear-gradient(transparent, rgba(12, 11, 9, 0.72));
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.steps {
+  background: var(--paper);
+  color: var(--ink-2);
+  padding: 12vh 6vw 14vh;
+}
+.steps-inner { max-width: 1180px; margin: 0 auto; }
+.steps-line {
+  height: 1px;
+  margin-bottom: 2.4rem;
+  background: var(--ink-2);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.steps ol {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4vw;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.steps li span {
+  display: block;
+  margin-bottom: 1.2rem;
+  font-family: Fraunces, Georgia, serif;
+  font-style: italic;
+  font-weight: 480;
+  font-size: 1.4rem;
+}
+.steps h2 {
+  margin: 0 0 0.7rem;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 520;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  letter-spacing: -0.03em;
+}
+.steps p {
+  max-width: 28ch;
+  margin: 0;
+  line-height: 1.45;
+}
+.race { height: 230vh; background: var(--bg); }
+.race-pin {
+  position: sticky;
+  top: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0 4vw 10vh;
+}
+.you {
+  background: #141210;
+  border-right: 1px solid rgba(228, 195, 154, 0.28);
+}
+.late { background: #0c0b09; }
+.side-kicker {
+  margin-bottom: 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.side h2 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 440;
+  font-size: clamp(4rem, 8vw, 7.4rem);
+  line-height: 0.86;
+  letter-spacing: -0.045em;
+}
+.late h2 {
+  font-style: italic;
+  font-weight: 450;
+  color: var(--copper);
+}
+.piece {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: min(42vh, 420px);
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  transform: translate3d(-50%, -58%, 0);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.shelf {
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 12vh 4vw 16vh;
+}
+.shelf-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 4vh;
+  padding-top: 18px;
+  border-top: 1px solid rgba(228, 195, 154, 0.4);
+}
+.shelf-head h2 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 460;
+  font-size: clamp(2.8rem, 5vw, 4.6rem);
+  letter-spacing: -0.035em;
+}
+#live {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  grid-column: span 2;
+  background: #141210;
+  border: 1px solid rgba(243, 238, 230, 0.08);
+}
+.card:nth-child(1),
+.card:nth-child(2),
+.card:nth-child(6),
+.card:nth-child(7) { grid-column: span 3; }
+.photo {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: #1c1915;
+}
+.photo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 16px 18px;
+}
+.flag {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.card h3 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 500;
+  font-size: 1.7rem;
+  letter-spacing: -0.03em;
+}
+.stock {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 14px;
+}
+button {
+  border: 1px solid rgba(228, 195, 154, 0.55);
+  background: transparent;
+  color: var(--ink);
+  padding: 12px 14px;
+  font-family: "Instrument Sans", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 560;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+button.primary {
+  border-color: var(--copper);
+  background: var(--copper);
+  color: var(--ink-2);
+}
+button:disabled { opacity: 0.35; cursor: default; }
+button:focus-visible {
+  outline: 1px solid var(--copper);
+  outline-offset: 3px;
+}
+.ring {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: rgba(12, 11, 9, 0.62);
+}
+.ring svg { display: block; width: 100%; height: 100%; }
+.ring circle { fill: none; stroke-width: 1.5; }
+.ring .track { stroke: rgba(243, 238, 230, 0.28); }
+.ring .value {
+  stroke: var(--copper);
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 18px 18px;
+}
+.ring span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 520;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 980px) {
+  .card,
+  .card:nth-child(1),
+  .card:nth-child(2),
+  .card:nth-child(6),
+  .card:nth-child(7) { grid-column: span 3; }
+}
+@media (max-width: 800px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    padding-top: 14vh;
+  }
+  .hero-frame { height: 70vw; min-height: 240px; }
+  .steps ol { grid-template-columns: 1fr; gap: 2.4rem; }
+  .side h2 { font-size: 3.1rem; }
+  .piece { width: min(46vw, 240px); top: 34%; }
+}
+@media (max-width: 680px) {
+  .card,
+  .card:nth-child(1),
+  .card:nth-child(2),
+  .card:nth-child(6),
+  .card:nth-child(7) { grid-column: span 6; }
+  .meta { display: none; }
+  #bar { display: flex; justify-content: space-between; }
+  .shelf-head { align-items: flex-start; flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #bar { transition: none; }
+  .hero-frame img { height: 100%; transform: none !important; }
+  .piece { transform: translate3d(-50%, -58%, 0) !important; }
+}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+<header id="bar">
+  <a class="mark" href="#top">Hold</a>
+  <span class="meta">Thirty seconds</span>
+  <button id="restock" type="button">Restock</button>
+</header>
+<main id="top">
+  <section class="hero">
+    <div>
+      <p class="kicker">The last piece on the shelf</p>
+      <h1>Hold the<br><em>last</em> one.</h1>
+      <p class="lede">Reserve it for thirty seconds. While the hold is alive, a second hand cannot take it. Keep it, or the shelf takes it back.</p>
+    </div>
+    <figure class="hero-frame">
+      <img id="hero-photo" src="img/ash.jpg" alt="Pale speckled bottles on a dark table" fetchpriority="high">
+      <figcaption>Ash bottles · one left</figcaption>
+    </figure>
+  </section>
+  <section class="steps" id="steps">
+    <div class="steps-inner">
+      <div class="steps-line" id="steps-line"></div>
+      <ol>
+        <li>
+          <span>01</span>
+          <h2>Hold</h2>
+          <p>The piece leaves the count the moment you reserve it.</p>
+        </li>
+        <li>
+          <span>02</span>
+          <h2>The other hand</h2>
+          <p>Another window can watch the shelf. It cannot take what you are holding.</p>
+        </li>
+        <li>
+          <span>03</span>
+          <h2>Keep</h2>
+          <p>Confirm, and it stays with you. Release it, or let the clock finish, and the stock returns.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+  <section class="race" id="race">
+    <div class="race-pin">
+      <div class="side you">
+        <span class="side-kicker">This window</span>
+        <h2>You</h2>
+      </div>
+      <div class="side late" id="late">
+        <span class="side-kicker">The other hand</span>
+        <h2>Too late</h2>
+      </div>
+      <img class="piece" id="piece" src="img/ash.jpg" alt="" aria-hidden="true">
+    </div>
+  </section>
+  <section class="shelf" id="shelf">
+    <div class="shelf-head">
+      <h2>The shelf</h2>
+      <p id="live">No live holds</p>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+<script>
+const HOLD_MS = 30000
+const CIRC = 2 * Math.PI * 15.5
+const progress = document.getElementById("progress")
+const bar = document.getElementById("bar")
+const hero = document.querySelector(".hero")
+const heroPhoto = document.getElementById("hero-photo")
+const steps = document.getElementById("steps")
+const stepsLine = document.getElementById("steps-line")
+const race = document.getElementById("race")
+const late = document.getElementById("late")
+const piece = document.getElementById("piece")
+const grid = document.getElementById("grid")
+const live = document.getElementById("live")
+const motion = matchMedia("(prefers-reduced-motion: reduce)")
+let reduce = motion.matches
+let mine = null
+let busy = false
+let sig = ""
+let running = false
+let again = false
+let pulledExpiry = false
+
+motion.addEventListener("change", () => {
+  reduce = motion.matches
+  if (reduce) {
+    heroPhoto.style.transform = ""
+    piece.style.transform = ""
+  }
+  onScroll()
+})
+
+function clamp(n, a, b) { return Math.max(a, Math.min(b, n)) }
+
+let ticking = false
+function onScroll() {
+  if (ticking) return
+  ticking = true
+  requestAnimationFrame(frame)
+}
+function frame() {
+  ticking = false
+  const h = innerHeight
+  const max = document.documentElement.scrollHeight - h
+  const heroR = hero.getBoundingClientRect()
+  const stepsR = steps.getBoundingClientRect()
+  const raceR = race.getBoundingClientRect()
+  const total = race.offsetHeight - h
+  progress.style.transform = "scaleX(" + (max > 0 ? scrollY / max : 0) + ")"
+  const head = bar.offsetHeight
+  bar.classList.toggle("dark", stepsR.top < head && stepsR.bottom > head)
+  const start = h * 0.9
+  const end = h * 0.38
+  const draw = clamp((start - stepsR.top) / (start - end), 0, 1)
+  stepsLine.style.transform = "scaleX(" + draw + ")"
+  const p = total > 0 ? clamp(-raceR.top / total, 0, 1) : 0
+  late.style.opacity = String(1 - p * 0.78)
+  if (!reduce) {
+    const py = clamp(-heroR.top * 0.08, -28, 28)
+    heroPhoto.style.transform = "translate3d(0," + py + "px,0)"
+    const shift = -p * innerWidth * 0.25
+    piece.style.transform = "translate3d(calc(-50% + " + shift + "px), -58%, 0)"
+  }
+}
+addEventListener("scroll", onScroll, { passive: true })
+addEventListener("resize", onScroll, { passive: true })
+onScroll()
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]))
+}
+function stockLabel(p, mineHere) {
+  if (mineHere) return "Held by you"
+  if (p.stock > 0) return p.stock === 1 ? "1 left" : p.stock + " left"
+  if (p.held > 0) return "Held"
+  return "Gone"
+}
+function render(cat) {
+  const products = cat.products || []
+  const n = cat.live_holds || 0
+  live.textContent = n === 0 ? "No live holds" : n === 1 ? "1 live hold" : n + " live holds"
+  const next = JSON.stringify({
+    live: n,
+    mine: mine ? mine.id + ":" + mine.status : "",
+    rows: products.map((p) => [p.id, p.stock, p.held])
+  })
+  if (next === sig) return
+  sig = next
+  const have = mine && mine.status === "active"
+  grid.innerHTML = products.map((p) => {
+    const mineHere = have && mine.product_id === p.id
+    const flag = p.id === "ash" ? '<p class="flag">Last one</p>' : ""
+    let actions = ""
+    if (mineHere) {
+      actions = '<button class="primary" type="button" data-act="keep">Keep</button><button type="button" data-act="release">Release</button>'
+    } else if (p.stock > 0) {
+      actions = '<button class="primary" type="button" data-act="hold" data-id="' + esc(p.id) + '"' + (have ? " disabled" : "") + ">Hold</button>"
+    }
+    const ring = mineHere
+      ? '<div class="ring" role="timer"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="track" cx="18" cy="18" r="15.5"></circle><circle class="value" cx="18" cy="18" r="15.5"></circle></svg><span>30</span></div>'
+      : ""
+    return '<article class="card"><div class="photo"><img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" decoding="async">' + ring + '</div><div class="body">' + flag + "<h3>" + esc(p.name) + "</h3><p class=\"stock\">" + stockLabel(p, mineHere) + '</p><div class="actions">' + actions + "</div></div></article>"
+  }).join("")
+  paintRing()
+}
+function paintRing() {
+  const ring = document.querySelector(".ring")
+  if (!ring || !mine || mine.status !== "active") return
+  const left = Math.max(0, mine.expires_at - Date.now())
+  const value = ring.querySelector(".value")
+  const ratio = clamp(left / HOLD_MS, 0, 1)
+  value.style.strokeDasharray = String(CIRC)
+  value.style.strokeDashoffset = String(CIRC * (1 - ratio))
+  const secs = Math.max(0, Math.ceil(left / 1000))
+  ring.querySelector("span").textContent = String(secs)
+  ring.setAttribute("aria-label", secs + " seconds remaining")
+  if (left <= 0 && !pulledExpiry) {
+    pulledExpiry = true
+    refresh().finally(() => { pulledExpiry = false })
+  }
+}
+function loop() {
+  paintRing()
+  requestAnimationFrame(loop)
+}
+requestAnimationFrame(loop)
+
+async function post(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: body ? { "Content-Type": "application/json" } : undefined,
+    body: body ? JSON.stringify(body) : undefined
+  })
+  let data = {}
+  try { data = await res.json() } catch (e) {}
+  return { ok: res.ok, data }
+}
+async function load() {
+  const res = await fetch("/api/catalog")
+  if (!res.ok) return
+  const cat = await res.json()
+  if (mine && mine.status === "active") {
+    const hr = await fetch("/api/holds/" + encodeURIComponent(mine.id))
+    if (hr.status === 404) mine = null
+    else if (hr.ok) {
+      const h = await hr.json()
+      mine = h.status === "active" ? h : null
+    }
+  }
+  render(cat)
+}
+function refresh() {
+  if (running) {
+    again = true
+    return Promise.resolve()
+  }
+  running = true
+  return (async () => {
+    try {
+      do {
+        again = false
+        await load()
+      } while (again)
+    } catch (e) {
+    } finally {
+      running = false
+    }
+  })()
+}
+async function take(id) {
+  if (busy || (mine && mine.status === "active")) return
+  busy = true
+  try {
+    const { ok, data } = await post("/api/holds", { product_id: id })
+    if (ok) mine = data
+    sig = ""
+    await refresh()
+  } finally {
+    busy = false
+  }
+}
+async function keep() {
+  if (!mine || busy) return
+  busy = true
+  const id = mine.id
+  try {
+    const { ok } = await post("/api/holds/" + encodeURIComponent(id) + "/confirm")
+    if (ok) mine = null
+    sig = ""
+    await refresh()
+  } finally {
+    busy = false
+  }
+}
+async function release() {
+  if (!mine || busy) return
+  busy = true
+  const id = mine.id
+  try {
+    const { ok } = await post("/api/holds/" + encodeURIComponent(id) + "/cancel")
+    if (ok) mine = null
+    sig = ""
+    await refresh()
+  } finally {
+    busy = false
+  }
+}
+async function restock() {
+  if (busy) return
+  busy = true
+  try {
+    mine = null
+    sig = ""
+    await post("/api/reset")
+    await refresh()
+  } finally {
+    busy = false
+  }
+}
+grid.addEventListener("click", (e) => {
+  const btn = e.target.closest("button")
+  if (!btn || btn.disabled) return
+  if (btn.dataset.act === "hold") take(btn.dataset.id)
+  if (btn.dataset.act === "keep") keep()
+  if (btn.dataset.act === "release") release()
+})
+document.getElementById("restock").addEventListener("click", restock)
+refresh()
+setInterval(refresh, 1000)
+</script>
+</body>
+</html>
