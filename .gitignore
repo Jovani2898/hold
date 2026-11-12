@@ -1,0 +1,5 @@
+hold.db
+hold.db-wal
+hold.db-shm
+*.db
+.DS_Store
