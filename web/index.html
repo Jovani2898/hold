@@ -394,6 +394,84 @@ button:focus-visible {
   font-weight: 520;
   font-variant-numeric: tabular-nums;
 }
+.note {
+  margin: 1.1rem 0 0;
+  font-family: Fraunces, Georgia, serif;
+  font-style: italic;
+  font-weight: 460;
+  font-size: 1.45rem;
+  letter-spacing: -0.02em;
+  color: var(--copper);
+}
+.note[hidden] { display: none; }
+#race-now { margin-top: 1.8rem; }
+#eyes {
+  margin: 0 0 0.35rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.tape {
+  list-style: none;
+  margin: 0 0 3vh;
+  padding: 0;
+}
+.tape li {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-style: italic;
+  font-weight: 460;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+  color: var(--copper);
+}
+.tape li + li {
+  margin-top: 0.2rem;
+  font-size: 1.05rem;
+  color: rgba(228, 195, 154, 0.45);
+}
+.card.held-out .photo img { opacity: 0.62; }
+.card.miss { box-shadow: inset 0 0 0 1px var(--copper); }
+.yours { margin-top: 9vh; }
+.yours-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.yours-head h2 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 460;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  letter-spacing: -0.03em;
+}
+.yours-head p {
+  margin: 0;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--copper);
+}
+.yours-row { display: flex; flex-wrap: wrap; gap: 16px; }
+.yours-row figure { width: min(28vw, 180px); margin: 0; }
+.yours-row img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.yours-row figcaption {
+  margin-top: 8px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.15rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card.miss { animation: miss 0.7s ease; }
+}
+@keyframes miss {
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
 @media (max-width: 980px) {
   .card,
   .card:nth-child(1),
@@ -442,6 +520,7 @@ button:focus-visible {
       <p class="kicker">The last piece on the shelf</p>
       <h1>Hold the<br><em>last</em> one.</h1>
       <p class="lede">Reserve it for thirty seconds. While the hold is alive, a second hand cannot take it. Keep it, or the shelf takes it back.</p>
+      <button id="race-now" class="primary" type="button">Race for the last one</button>
     </div>
     <figure class="hero-frame">
       <img id="hero-photo" src="img/ash.jpg" alt="Pale speckled bottles on a dark table" fetchpriority="high">
@@ -465,7 +544,7 @@ button:focus-visible {
         <li>
           <span>03</span>
           <h2>Keep</h2>
-          <p>Confirm, and it stays with you. Release it, or let the clock finish, and the stock returns.</p>
+          <p>Confirm, and it lands under Yours. Release it, or let the clock finish, and the stock returns.</p>
         </li>
       </ol>
     </div>
@@ -485,10 +564,22 @@ button:focus-visible {
   </section>
   <section class="shelf" id="shelf">
     <div class="shelf-head">
-      <h2>The shelf</h2>
-      <p id="live">No live holds</p>
+      <div>
+        <p id="eyes">1 hand here</p>
+        <h2>The shelf</h2>
+      </div>
+      <p id="live">The shelf is open</p>
     </div>
+    <p id="note" class="note" hidden></p>
+    <ol id="tape" class="tape"></ol>
     <div class="grid" id="grid"></div>
+    <div class="yours" id="yours" hidden>
+      <div class="yours-head">
+        <h2>Yours</h2>
+        <p>What you kept</p>
+      </div>
+      <div class="yours-row" id="yours-row"></div>
+    </div>
   </section>
 </main>
 <script>
@@ -505,14 +596,25 @@ const late = document.getElementById("late")
 const piece = document.getElementById("piece")
 const grid = document.getElementById("grid")
 const live = document.getElementById("live")
+const eyes = document.getElementById("eyes")
+const tape = document.getElementById("tape")
+let heard = []
 const motion = matchMedia("(prefers-reduced-motion: reduce)")
 let reduce = motion.matches
 let mine = null
 let busy = false
+let racing = false
 let sig = ""
+let yoursSig = ""
 let running = false
 let again = false
 let pulledExpiry = false
+let lastCat = null
+let miss = ""
+let missTimer = 0
+let noteTimer = 0
+let yours = []
+try { yours = JSON.parse(sessionStorage.getItem("hold-yours") || "[]") } catch (e) { yours = [] }
 
 motion.addEventListener("change", () => {
   reduce = motion.matches
@@ -564,26 +666,93 @@ function esc(s) {
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]))
 }
+function saveYours() {
+  sessionStorage.setItem("hold-yours", JSON.stringify(yours))
+}
+function productName(products, id) {
+  const p = (products || []).find((item) => item.id === id)
+  return p ? p.name : "It"
+}
+function soonest(hands, id) {
+  let at = 0
+  for (const h of hands || []) {
+    if (h.product_id === id && (!at || h.expires_at < at)) at = h.expires_at
+  }
+  return at
+}
+function say(text) {
+  const note = document.getElementById("note")
+  note.hidden = false
+  note.textContent = text
+  clearTimeout(noteTimer)
+  noteTimer = setTimeout(() => { note.hidden = true }, 4200)
+}
+function flash(id) {
+  miss = id
+  sig = ""
+  if (lastCat) render(lastCat)
+  clearTimeout(missTimer)
+  missTimer = setTimeout(() => {
+    miss = ""
+    sig = ""
+    if (lastCat) render(lastCat)
+  }, 1600)
+}
 function stockLabel(p, mineHere) {
+  if (p.id === miss) return "Too late"
   if (mineHere) return "Held by you"
+  if (p.stock > 0 && p.held > 0) return (p.stock === 1 ? "1 left" : p.stock + " left") + " · held"
   if (p.stock > 0) return p.stock === 1 ? "1 left" : p.stock + " left"
-  if (p.held > 0) return "Held"
+  if (p.held > 0) return "Too late"
   return "Gone"
 }
+function renderYours() {
+  const box = document.getElementById("yours")
+  const next = JSON.stringify(yours)
+  if (!yours.length) {
+    box.hidden = true
+    yoursSig = next
+    return
+  }
+  box.hidden = false
+  if (next === yoursSig) return
+  yoursSig = next
+  document.getElementById("yours-row").innerHTML = yours.map((item) => (
+    '<figure><img src="' + esc(item.image) + '" alt="' + esc(item.name) + '"><figcaption>' + esc(item.name) + "</figcaption></figure>"
+  )).join("")
+}
+function hear(text) {
+  if (!text || heard[0] === text) return
+  heard.unshift(text)
+  heard = heard.slice(0, 3)
+  tape.innerHTML = heard.map((line) => "<li>" + esc(line) + "</li>").join("")
+}
 function render(cat) {
+  lastCat = cat
+  const raceBtn = document.getElementById("race-now")
+  if (raceBtn) raceBtn.disabled = !!(mine && mine.status === "active")
   const products = cat.products || []
+  const hands = cat.hands || []
+  if (products.length && products.every((p) => p.stock === p.initial && p.held === 0) && yours.length) {
+    yours = []
+    saveYours()
+  }
   const n = cat.live_holds || 0
-  live.textContent = n === 0 ? "No live holds" : n === 1 ? "1 live hold" : n + " live holds"
+  live.textContent = n === 0 ? "The shelf is open" : n === 1 ? "1 piece held" : n + " pieces held"
   const next = JSON.stringify({
     live: n,
     mine: mine ? mine.id + ":" + mine.status : "",
-    rows: products.map((p) => [p.id, p.stock, p.held])
+    miss: miss,
+    rows: products.map((p) => [p.id, p.stock, p.held]),
+    hands: hands.map((h) => [h.product_id, h.expires_at])
   })
+  renderYours()
   if (next === sig) return
   sig = next
   const have = mine && mine.status === "active"
   grid.innerHTML = products.map((p) => {
     const mineHere = have && mine.product_id === p.id
+    const lost = !mineHere && p.held > 0 && p.stock < 1
     const flag = p.id === "ash" ? '<p class="flag">Last one</p>' : ""
     let actions = ""
     if (mineHere) {
@@ -594,11 +763,18 @@ function render(cat) {
     const ring = mineHere
       ? '<div class="ring" role="timer"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="track" cx="18" cy="18" r="15.5"></circle><circle class="value" cx="18" cy="18" r="15.5"></circle></svg><span>30</span></div>'
       : ""
-    return '<article class="card"><div class="photo"><img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" decoding="async">' + ring + '</div><div class="body">' + flag + "<h3>" + esc(p.name) + "</h3><p class=\"stock\">" + stockLabel(p, mineHere) + '</p><div class="actions">' + actions + "</div></div></article>"
+    const at = soonest(hands, p.id)
+    const wait = !mineHere && at ? ' <span class="wait" data-wait="' + at + '"></span>' : ""
+    const cls = "card" + (lost ? " held-out" : "") + (p.id === miss ? " miss" : "")
+    return '<article class="' + cls + '"><div class="photo"><img src="' + esc(p.image) + '" alt="' + esc(p.name) + '" decoding="async">' + ring + '</div><div class="body">' + flag + "<h3>" + esc(p.name) + "</h3><p class=\"stock\">" + stockLabel(p, mineHere) + wait + '</p><div class="actions">' + actions + "</div></div></article>"
   }).join("")
   paintRing()
 }
 function paintRing() {
+  document.querySelectorAll(".wait").forEach((el) => {
+    const left = Math.max(0, Number(el.dataset.wait) - Date.now())
+    el.textContent = Math.max(0, Math.ceil(left / 1000)) + "s"
+  })
   const ring = document.querySelector(".ring")
   if (!ring || !mine || mine.status !== "active") return
   const left = Math.max(0, mine.expires_at - Date.now())
@@ -634,14 +810,22 @@ async function load() {
   const res = await fetch("/api/catalog")
   if (!res.ok) return
   const cat = await res.json()
+  let lost = null
   if (mine && mine.status === "active") {
     const hr = await fetch("/api/holds/" + encodeURIComponent(mine.id))
-    if (hr.status === 404) mine = null
-    else if (hr.ok) {
+    if (hr.status === 404) {
+      lost = mine
+      mine = null
+    } else if (hr.ok) {
       const h = await hr.json()
-      mine = h.status === "active" ? h : null
+      if (h.status === "active") mine = h
+      else {
+        lost = mine
+        mine = null
+      }
     }
   }
+  if (lost) say(productName(cat.products, lost.product_id) + " slipped back onto the shelf.")
   render(cat)
 }
 function refresh() {
@@ -668,6 +852,10 @@ async function take(id) {
   try {
     const { ok, data } = await post("/api/holds", { product_id: id })
     if (ok) mine = data
+    else if (data.error === "gone") {
+      flash(id)
+      say("Too late. Someone else is holding it.")
+    }
     sig = ""
     await refresh()
   } finally {
@@ -677,10 +865,18 @@ async function take(id) {
 async function keep() {
   if (!mine || busy) return
   busy = true
-  const id = mine.id
+  const held = mine
   try {
-    const { ok } = await post("/api/holds/" + encodeURIComponent(id) + "/confirm")
-    if (ok) mine = null
+    const { ok } = await post("/api/holds/" + encodeURIComponent(held.id) + "/confirm")
+    if (ok) {
+      const products = lastCat && lastCat.products
+      const name = productName(products, held.product_id)
+      const p = (products || []).find((item) => item.id === held.product_id)
+      yours.push({ id: held.product_id, name: name, image: p ? p.image : "" })
+      saveYours()
+      mine = null
+      say(name + " is yours.")
+    }
     sig = ""
     await refresh()
   } finally {
@@ -690,10 +886,13 @@ async function keep() {
 async function release() {
   if (!mine || busy) return
   busy = true
-  const id = mine.id
+  const held = mine
   try {
-    const { ok } = await post("/api/holds/" + encodeURIComponent(id) + "/cancel")
-    if (ok) mine = null
+    const { ok } = await post("/api/holds/" + encodeURIComponent(held.id) + "/cancel")
+    if (ok) {
+      mine = null
+      say(productName(lastCat && lastCat.products, held.product_id) + " is back on the shelf.")
+    }
     sig = ""
     await refresh()
   } finally {
@@ -705,6 +904,9 @@ async function restock() {
   busy = true
   try {
     mine = null
+    miss = ""
+    yours = []
+    saveYours()
     sig = ""
     await post("/api/reset")
     await refresh()
@@ -719,7 +921,44 @@ grid.addEventListener("click", (e) => {
   if (btn.dataset.act === "keep") keep()
   if (btn.dataset.act === "release") release()
 })
+async function raceNow() {
+  if (busy || (mine && mine.status === "active")) return
+  busy = true
+  racing = true
+  const raceBtn = document.getElementById("race-now")
+  raceBtn.disabled = true
+  try {
+    const { ok, data } = await post("/api/race")
+    if (ok && data.winner) {
+      mine = data.winner
+      say("Two hands reached. This window was faster.")
+      sig = ""
+      await refresh()
+      const card = document.querySelector(".card")
+      if (card) card.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" })
+    } else {
+      flash("ash")
+      say("Too late. The last one is already held.")
+      sig = ""
+      await refresh()
+    }
+  } finally {
+    racing = false
+    busy = false
+    if (raceBtn) raceBtn.disabled = !!(mine && mine.status === "active")
+  }
+}
 document.getElementById("restock").addEventListener("click", restock)
+document.getElementById("race-now").addEventListener("click", raceNow)
+const stream = new EventSource("/api/live")
+stream.onmessage = (ev) => {
+  let msg
+  try { msg = JSON.parse(ev.data) } catch (e) { return }
+  const n = msg.viewers || 1
+  eyes.textContent = n === 1 ? "1 hand here" : n + " hands here"
+  if (msg.note) hear(msg.note)
+  if (msg.catalog && !racing) render(msg.catalog)
+}
 refresh()
 setInterval(refresh, 1000)
 </script>

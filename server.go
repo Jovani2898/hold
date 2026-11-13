@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -17,12 +18,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	live := NewLive(store)
+	go live.Watch(context.Background())
 	log.Print("listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", routes(store)))
+	log.Fatal(http.ListenAndServe(":8080", routes(store, live)))
 }
 
-func routes(s *Store) http.Handler {
+func routes(s *Store, live *Live) http.Handler {
 	mux := http.NewServeMux()
+	mux.Handle("GET /api/live", live)
 	mux.HandleFunc("GET /api/catalog", func(w http.ResponseWriter, r *http.Request) {
 		cat, err := s.Catalog()
 		if err != nil {
@@ -45,6 +49,7 @@ func routes(s *Store) http.Handler {
 			writeErr(w, err)
 			return
 		}
+		live.Touch()
 		writeJSON(w, http.StatusCreated, h)
 	})
 	mux.HandleFunc("GET /api/holds/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -61,6 +66,7 @@ func routes(s *Store) http.Handler {
 			writeErr(w, err)
 			return
 		}
+		live.Touch()
 		writeJSON(w, http.StatusOK, h)
 	})
 	mux.HandleFunc("POST /api/holds/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +75,17 @@ func routes(s *Store) http.Handler {
 			writeErr(w, err)
 			return
 		}
+		live.Touch()
 		writeJSON(w, http.StatusOK, h)
+	})
+	mux.HandleFunc("POST /api/race", func(w http.ResponseWriter, r *http.Request) {
+		h, err := s.Race()
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		live.Announce("Two hands reached for Ash bottles. One was too late.")
+		writeJSON(w, http.StatusCreated, map[string]any{"winner": h, "beaten": 1})
 	})
 	mux.HandleFunc("POST /api/reset", func(w http.ResponseWriter, r *http.Request) {
 		cat, err := s.Reset()
@@ -77,6 +93,7 @@ func routes(s *Store) http.Handler {
 			writeErr(w, err)
 			return
 		}
+		live.Touch()
 		writeJSON(w, http.StatusOK, cat)
 	})
 	sub, err := fs.Sub(webRoot, "web")

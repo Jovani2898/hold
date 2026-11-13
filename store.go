@@ -35,9 +35,15 @@ type Hold struct {
 	Remaining int64  `json:"remaining_ms"`
 }
 
+type Hand struct {
+	ProductID string `json:"product_id"`
+	ExpiresAt int64  `json:"expires_at"`
+}
+
 type Catalog struct {
 	LiveHolds int       `json:"live_holds"`
 	Products  []Product `json:"products"`
+	Hands     []Hand    `json:"hands"`
 }
 
 type Store struct {
@@ -287,12 +293,66 @@ func (s *Store) Catalog() (Catalog, error) {
 		if err := rows.Err(); err != nil {
 			return err
 		}
+		rows.Close()
+		hands, err := tx.Query(`SELECT product_id, expires_at FROM holds WHERE status = 'active' ORDER BY expires_at`)
+		if err != nil {
+			return err
+		}
+		defer hands.Close()
+		for hands.Next() {
+			var h Hand
+			if err := hands.Scan(&h.ProductID, &h.ExpiresAt); err != nil {
+				return err
+			}
+			cat.Hands = append(cat.Hands, h)
+		}
+		if err := hands.Err(); err != nil {
+			return err
+		}
 		return tx.QueryRow(`SELECT COUNT(*) FROM holds WHERE status = 'active'`).Scan(&cat.LiveHolds)
 	})
 	if cat.Products == nil {
 		cat.Products = []Product{}
 	}
+	if cat.Hands == nil {
+		cat.Hands = []Hand{}
+	}
 	return cat, err
+}
+
+func (s *Store) Race() (Hold, error) {
+	out := make(chan struct {
+		h   Hold
+		err error
+	}, 2)
+	for i := 0; i < 2; i++ {
+		go func() {
+			h, err := s.Hold("ash")
+			out <- struct {
+				h   Hold
+				err error
+			}{h, err}
+		}()
+	}
+	var wins []Hold
+	for i := 0; i < 2; i++ {
+		r := <-out
+		if r.err == nil {
+			wins = append(wins, r.h)
+			continue
+		}
+		if errors.Is(r.err, ErrGone) {
+			continue
+		}
+		return Hold{}, r.err
+	}
+	if len(wins) == 0 {
+		return Hold{}, ErrGone
+	}
+	for _, extra := range wins[1:] {
+		s.Cancel(extra.ID)
+	}
+	return wins[0], nil
 }
 
 func (s *Store) Reset() (Catalog, error) {
